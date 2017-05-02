@@ -1,6 +1,6 @@
 {
   "name": "chrome-connector",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Minimal Chrome Debugging Protocol for Node.js, Browser and Electron",
   "main": "index.js",
   "scripts": {
