@@ -6,7 +6,8 @@
   "scripts": {
     "test": "mocha",
     "check": "eslint .",
-    "preversion": "npm run check",
+    "pretest": "npm run check",
+    "preversion": "npm test",
     "version": "git add -A",
     "postversion": "git push && git push --tags && npm publish"
   },
