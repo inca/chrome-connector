@@ -65,16 +65,17 @@ module.exports = function createChromeConnector(webSocketDebuggerUrl, options = 
     /**
      * Establishes a connection to CDP server.
      *
+     * @param wsUrl {string} optionally override the initial `webSocketDebuggerUrl`
      * @returns {Promise}
      */
-    function connect() {
+    function connect(wsUrl = webSocketDebuggerUrl) {
         return new Promise((resolve, reject) => {
             // Do not connect more than once
             if (isConnected()) {
                 resolve();
             }
             try {
-                _ws = createWebSocket(webSocketDebuggerUrl);
+                _ws = createWebSocket(wsUrl);
                 _ws.on('open', () => {
                     chrome.emit('connect');
                     resolve();
@@ -123,7 +124,7 @@ module.exports = function createChromeConnector(webSocketDebuggerUrl, options = 
     function sendCommand(method, params = {}) {
         return new Promise((resolve, reject) => {
             if (!isConnected()) {
-                throw new NotConnectedError(webSocketDebuggerUrl);
+                throw new NotConnectedError();
             }
             const id = _nextCommandId;
             _nextCommandId += 1;
