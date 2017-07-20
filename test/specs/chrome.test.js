@@ -102,8 +102,22 @@ describe('ChromeConnector', () => {
 
     describe('event', () => {
 
-        it('receives CDP events', done => {
+        it('receives all CDP events', done => {
             chrome.on('event', method => {
+                if (method === 'Page.frameStoppedLoading') {
+                    done();
+                }
+            });
+            Promise.resolve()
+                .then(() => chrome.connect())
+                .then(() => chrome.sendCommand('Page.enable'))
+                .then(() => chrome.sendCommand('Page.navigate', {
+                    url: 'data:text/html,<h1>Hi</h1>',
+                }));
+        });
+
+        it('receives domain-wide CDP events', done => {
+            chrome.on('event.Page', method => {
                 if (method === 'Page.frameStoppedLoading') {
                     done();
                 }

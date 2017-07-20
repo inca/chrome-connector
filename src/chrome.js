@@ -160,8 +160,10 @@ module.exports = function createChromeConnector(webSocketDebuggerUrl, options = 
                 handler(message);
             }
         } else if (message.method) {   // event
-            chrome.emit('event', message.method, message.params);
-            chrome.emit(message.method, message.params);
+            const { method, params } = message;
+            chrome.emit('event', method, params);
+            chrome.emit('event.' + method.replace(/\..*/, ''), method, params);
+            chrome.emit(method, params);
         }
     }
 
