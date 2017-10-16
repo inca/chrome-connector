@@ -7,6 +7,7 @@ const {
     NotConnectedError,
     ProtocolError,
     ProtocolTimeoutError,
+    TabCrashedError,
 } = require('./errors');
 
 /**
@@ -35,6 +36,8 @@ module.exports = function createChromeConnector(webSocketDebuggerUrl, options = 
 
     const {
         timeout = 60000,
+        rejectOnCrash = true,
+        rejectOnDisconnect = true,
     } = options;
 
     const chrome = new EventEmitter();
@@ -52,6 +55,22 @@ module.exports = function createChromeConnector(webSocketDebuggerUrl, options = 
         disconnect,
         sendCommand,
     });
+
+    if (rejectOnCrash) {
+        chrome.addListener('Inspector.targetCrashed', () => {
+            for (const handler of _awaitingHandlers.values()) {
+                handler.reject(new TabCrashedError());
+            }
+        });
+    }
+
+    if (rejectOnDisconnect) {
+        chrome.addListener('disconnect', () => {
+            for (const handler of _awaitingHandlers.values()) {
+                handler.reject(new NotConnectedError());
+            }
+        });
+    }
 
     return chrome;
 
@@ -133,20 +152,25 @@ module.exports = function createChromeConnector(webSocketDebuggerUrl, options = 
                 method,
                 params,
             }));
-            const timer = setTimeout(onTimeout, timeout);
-            _awaitingHandlers.set(id, message => {
-                clearTimeout(timer);
-                if (message.error) {
-                    reject(new ProtocolError(method, params, message.error));
-                } else {
-                    resolve(message.result);
-                }
-            });
-
-            function onTimeout() {
-                _awaitingHandlers.delete(id);
-                reject(new ProtocolTimeoutError(method, params));
-            }
+            const timer = setTimeout(() => {
+                handler.reject(new ProtocolTimeoutError(method, params));
+            }, timeout);
+            const handler = {
+                id,
+                method,
+                params,
+                resolve(result) {
+                    _awaitingHandlers.delete(id);
+                    clearTimeout(timer);
+                    resolve(result);
+                },
+                reject(err) {
+                    _awaitingHandlers.delete(id);
+                    clearTimeout(timer);
+                    reject(err);
+                },
+            };
+            _awaitingHandlers.set(id, handler);
         });
     }
 
@@ -154,10 +178,15 @@ module.exports = function createChromeConnector(webSocketDebuggerUrl, options = 
         const message = JSON.parse(data);
         if (message.id) {              // command response
             const handler = _awaitingHandlers.get(message.id);
-            _awaitingHandlers.delete(message.id);
-            // handler can be removed by timeout
-            if (handler) {
-                handler(message);
+            // handler can be removed if resolved/reject twice (e.g. race condition with timeout)
+            if (!handler) {
+                return;
+            }
+            if (message.error) {
+                const { method, params } = handler;
+                handler.reject(new ProtocolError(method, params, message.error));
+            } else {
+                handler.resolve(message.result);
             }
         } else if (message.method) {   // event
             const { method, params } = message;

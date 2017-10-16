@@ -98,6 +98,16 @@ describe('ChromeConnector', () => {
             }
         });
 
+        it('throws NotConnectedError if disconnected after command is sent', async () => {
+            const promise = chrome.sendCommand('Page.navigate', { url: 'http://github.com' });
+            chrome.disconnect();
+            try {
+                await promise;
+            } catch (err) {
+                expect(err.name).toEqual('NotConnectedError');
+            }
+        });
+
     });
 
     describe('event', () => {
