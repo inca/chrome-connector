@@ -59,7 +59,7 @@ module.exports = function createChromeConnector(webSocketDebuggerUrl, options = 
     if (rejectOnCrash) {
         chrome.addListener('Inspector.targetCrashed', () => {
             for (const handler of _awaitingHandlers.values()) {
-                handler.reject(new TabCrashedError());
+                handler.reject(new TabCrashedError(handler.method, handler.params));
             }
         });
     }
@@ -67,7 +67,7 @@ module.exports = function createChromeConnector(webSocketDebuggerUrl, options = 
     if (rejectOnDisconnect) {
         chrome.addListener('disconnect', () => {
             for (const handler of _awaitingHandlers.values()) {
-                handler.reject(new NotConnectedError());
+                handler.reject(new NotConnectedError(handler.method, handler.params));
             }
         });
     }
@@ -143,7 +143,7 @@ module.exports = function createChromeConnector(webSocketDebuggerUrl, options = 
     function sendCommand(method, params = {}) {
         return new Promise((resolve, reject) => {
             if (!isConnected()) {
-                throw new NotConnectedError();
+                throw new NotConnectedError(method, params);
             }
             const id = _nextCommandId;
             _nextCommandId += 1;

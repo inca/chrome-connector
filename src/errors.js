@@ -4,11 +4,13 @@
  * Thrown when attempting to send a CDP command on disconnected instance.
  */
 class NotConnectedError extends Error {
-    constructor(webSocketDebuggerUrl) {
+    constructor(webSocketDebuggerUrl, method, params) {
         super('CDP not connected');
         this.name = this.constructor.name;
         this.details = {
             webSocketDebuggerUrl,
+            method,
+            params,
         };
     }
 }
@@ -49,9 +51,13 @@ class ProtocolTimeoutError extends Error {
  * Thrown when target crashes.
  */
 class TabCrashedError extends Error {
-    constructor() {
+    constructor(method, params) {
         super('Tab crashed');
         this.name = this.constructor.name;
+        this.details = {
+            method,
+            params,
+        };
     }
 }
 
