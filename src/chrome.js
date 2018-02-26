@@ -38,6 +38,7 @@ module.exports = function createChromeConnector(webSocketDebuggerUrl, options = 
         timeout = 60000,
         rejectOnCrash = true,
         rejectOnDisconnect = true,
+        collectStats = false,
     } = options;
 
     const chrome = new EventEmitter();
@@ -48,12 +49,15 @@ module.exports = function createChromeConnector(webSocketDebuggerUrl, options = 
     let _ws = null;
     // Commands sent via CDP need to have unique ids
     let _nextCommandId = 1;
+    // When enabled, { n, min, max, sum, sumSq } of total rtts is collected per each command type
+    const commandStats = new Map();
 
     Object.assign(chrome, {
         isConnected,
         connect,
         disconnect,
         sendCommand,
+        commandStats,
     });
 
     if (rejectOnCrash) {
@@ -123,7 +127,7 @@ module.exports = function createChromeConnector(webSocketDebuggerUrl, options = 
     }
 
     /**
-     * Sends a CDP command.
+     * Sends a CDP command (method invokation).
      *
      * Note #1: this only rejects if protocol error occurs (e.g. incorrect
      * parameters specified). Methods like "Runtime.runScript" can
@@ -155,6 +159,7 @@ module.exports = function createChromeConnector(webSocketDebuggerUrl, options = 
             const timer = setTimeout(() => {
                 handler.reject(new ProtocolTimeoutError(method, params));
             }, timeout);
+            const startedAt = new Date();
             const handler = {
                 id,
                 method,
@@ -162,6 +167,9 @@ module.exports = function createChromeConnector(webSocketDebuggerUrl, options = 
                 resolve(result) {
                     _awaitingHandlers.delete(id);
                     clearTimeout(timer);
+                    if (collectStats) {
+                        incrStat(method, Date.now() - startedAt);
+                    }
                     resolve(result);
                 },
                 reject(err) {
@@ -200,6 +208,25 @@ module.exports = function createChromeConnector(webSocketDebuggerUrl, options = 
         _ws = null;
         chrome.emit('close', ev);
         chrome.emit('disconnect', ev);
+    }
+
+    function incrStat(method, duration) {
+        let bucket = commandStats.get(method);
+        if (!bucket) {
+            bucket = {
+                n: 0,
+                min: +Infinity,
+                max: -Infinity,
+                sum: 0,
+                sumSq: 0,
+            };
+            commandStats.set(method, bucket);
+        }
+        bucket.n += 1;
+        bucket.min = Math.min(bucket.min, duration);
+        bucket.max = Math.max(bucket.max, duration);
+        bucket.sum += duration;
+        bucket.sumSq += duration * duration;
     }
 
 };
