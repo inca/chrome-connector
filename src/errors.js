@@ -4,11 +4,10 @@
  * Thrown when attempting to send a CDP command on disconnected instance.
  */
 class NotConnectedError extends Error {
-    constructor(webSocketDebuggerUrl, method, params) {
+    constructor(method, params) {
         super('CDP not connected');
         this.name = this.constructor.name;
         this.details = {
-            webSocketDebuggerUrl,
             method,
             params,
         };
