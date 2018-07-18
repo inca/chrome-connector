@@ -1,10 +1,6 @@
 'use strict';
 
-const WebSocket = require('ws');
+//eslint-disable-next-line no-undef
+const hasGlobalWebSocket = !!global.WebSocket || (typeof window !== 'undefined' && !!window.WebSocket);
 
-module.exports = function createWebSocket(url) {
-    return new WebSocket(url, {
-        // https://github.com/cyrus-and/chrome-remote-interface/issues/39
-        perMessageDeflate: false,
-    });
-};
+module.exports = hasGlobalWebSocket ? require('./websocket-browser') : require('./websocket-node');
